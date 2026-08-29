@@ -12,8 +12,7 @@
        min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
   .khung{width:100%;max-width:720px}
 
-  .dongho{text-align:center;margin-bottom:32px}
-  .dongho{cursor:default;-webkit-user-select:none;user-select:none}
+  .dongho{text-align:center;margin-bottom:32px;-webkit-user-select:none;user-select:none}
   .gio{font-family:ui-monospace,Consolas,monospace;font-size:clamp(64px,15vw,116px);
        font-weight:300;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
   .gio .cham{animation:nhay 2s steps(1) infinite}
@@ -28,20 +27,22 @@
         color:var(--chu);font-size:20px;padding:16px 18px;letter-spacing:.2em;outline:none}
   input:focus{border-color:var(--dau)}
 
-  button{font-family:inherit;cursor:pointer;border:none;border-radius:9px;transition:transform .08s,filter .15s}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:9px;
+         transition:transform .08s,filter .15s}
   button:active{transform:scale(.985)}
+  button:disabled{opacity:.5;cursor:default}
   button:focus-visible{outline:2px solid var(--chu);outline-offset:2px}
-  .nut-chinh{width:100%;margin-top:14px;background:var(--dau);color:#fff;font-size:17px;font-weight:600;padding:16px}
-  .nut-chinh:hover{filter:brightness(1.1)}
+  .nut-chinh{width:100%;margin-top:14px;background:var(--dau);color:#fff;
+             font-size:17px;font-weight:600;padding:16px}
+  .nut-chinh:hover:not(:disabled){filter:brightness(1.1)}
 
   .ten-lon{font-size:26px;font-weight:600;margin-bottom:6px}
   .tt{color:var(--mo);font-size:14px;margin-bottom:22px;font-family:ui-monospace,monospace}
   .doi-nut{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .nut-vao,.nut-ra{color:#fff;font-size:19px;font-weight:600;padding:30px 16px}
   .nut-vao{background:var(--vao)} .nut-ra{background:var(--ra)}
-  .nut-vao:hover,.nut-ra:hover{filter:brightness(1.12)}
+  .nut-vao:hover:not(:disabled),.nut-ra:hover:not(:disabled){filter:brightness(1.12)}
 
-  /* báo cáo */
   .thanh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px}
   .thanh h2{margin:0}
   .nho{background:var(--nen);border:1px solid var(--vien);color:var(--mo);
@@ -59,7 +60,6 @@
         display:inline-block;letter-spacing:.04em}
   .nhan.v{background:rgba(62,158,126,.16);color:var(--vao)}
   .nhan.r{background:rgba(184,118,58,.16);color:var(--ra)}
-  .moi td{color:var(--chu)}
   .trong{padding:44px 16px;text-align:center;color:var(--mo);font-size:15px}
   .tom{color:var(--mo);font-size:13px;margin-top:14px}
 
@@ -82,12 +82,11 @@
 <body>
 
 <div class="khung">
-  <div class="dongho" id="dongho-vung">
+  <div class="dongho" id="dongho">
     <div class="gio" id="gio">--<span class="cham">:</span>--</div>
     <div class="ngay" id="ngay"></div>
   </div>
 
-  <!-- 1. mật khẩu -->
   <div class="the" id="m-pass">
     <h2>Nhập mật khẩu</h2>
     <input type="password" id="pass" autocomplete="off" placeholder="••••••••">
@@ -95,28 +94,27 @@
     <div class="loi" id="loi-pass"></div>
   </div>
 
-  <!-- 2. chấm công -->
   <div class="the an" id="m-cham">
     <div class="ten-lon" id="ten-nv"></div>
-    <div class="tt" id="tt-hnay"></div>
+    <div class="tt" id="tt">Đang tải...</div>
     <div class="doi-nut">
-      <button class="nut-vao" onclick="cham('Vào ca')">Vào ca</button>
-      <button class="nut-ra"  onclick="cham('Ra ca')">Ra ca</button>
+      <button class="nut-vao" id="b-vao" onclick="cham('Vào ca')">Vào ca</button>
+      <button class="nut-ra"  id="b-ra"  onclick="cham('Ra ca')">Ra ca</button>
     </div>
+    <div class="loi" id="loi-cham"></div>
   </div>
 
-  <!-- 3. báo cáo -->
   <div class="the an" id="m-bc">
     <div class="thanh">
       <h2>Lịch sử chấm công</h2>
       <div>
+        <button class="nho" onclick="taiBaoCao()">Làm mới</button>
         <button class="nho" onclick="taiCSV()">Tải Excel</button>
-        <button class="nho" onclick="xoaHet()">Xoá hết</button>
       </div>
     </div>
     <div class="bang"><table>
       <thead><tr><th>Ngày</th><th>Giờ</th><th>Loại</th></tr></thead>
-      <tbody id="tbody"></tbody>
+      <tbody id="tbody"><tr><td colspan="3" class="trong">Đang tải...</td></tr></tbody>
     </table></div>
     <div class="tom" id="tom"></div>
   </div>
@@ -131,25 +129,36 @@
 </div>
 
 <script>
-/* ================= CẤU HÌNH ================= */
-var TEN_NHAN_VIEN = 'Nguyễn Văn A';
+/* ==================== CẤU HÌNH ====================
+   Dán URL Web App của Apps Script vào đây.
+   Dạng: https://script.google.com/macros/s/AKfy..../exec  */
+var API = 'https://script.google.com/macros/s/AKfycbwg8XG53kH4LKpsbMyuXL-0OMrKqb7Zcc_CymLApnDUHEUsu3D8vduKm3rWVyWiwz5V/exec';
+
+var TEN_NHAN_VIEN = 'Nguyễn Võ Khánh Tường';
 var PASS_NHANVIEN = 'chamcongchongluoibieng';
 var PASS_ADMIN    = 'toilaquantrivien';
-/* ============================================ */
+/* ================================================== */
 
-var KHOA = 'chamcong_data';
-var KHOA_VAITRO = 'chamcong_vaitro';
-var THU  = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
+var KHOA_VAITRO = 'cc_vaitro';
+var THU = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
+var lichSu = [];
 
 function $(id){ return document.getElementById(id); }
 function h2(n){ return ('0'+n).slice(-2); }
-
-function doc(){ try{ return JSON.parse(localStorage.getItem(KHOA)||'[]'); }catch(e){ return []; } }
-function ghi(d){ try{ localStorage.setItem(KHOA, JSON.stringify(d)); }catch(e){} }
+function nho(v){ try{ localStorage.setItem(KHOA_VAITRO,v); }catch(e){} }
+function layVaiTro(){ try{ return localStorage.getItem(KHOA_VAITRO)||''; }catch(e){ return ''; } }
 
 function hien(id){
   ['m-pass','m-cham','m-bc'].forEach(function(m){ $(m).classList.add('an'); });
   $(id).classList.remove('an');
+}
+
+/* gọi API */
+function goi(params){
+  var q = Object.keys(params).map(function(k){
+    return k+'='+encodeURIComponent(params[k]);
+  }).join('&');
+  return fetch(API+'?'+q).then(function(r){ return r.json(); });
 }
 
 /* đồng hồ */
@@ -168,128 +177,110 @@ function vao(){
   var p = $('pass').value.trim();
   $('loi-pass').textContent = '';
   if (p === PASS_NHANVIEN){
-    $('pass').value = '';
-    nhoVaiTro('nv');
-    moChamCong();
+    $('pass').value=''; nho('nv'); moChamCong();
   } else if (p === PASS_ADMIN){
-    $('pass').value = '';
-    nhoVaiTro('admin');
-    moBaoCao();
+    $('pass').value=''; nho('admin'); moBaoCao();
   } else {
     $('loi-pass').textContent = 'Mật khẩu không đúng';
     $('pass').value = '';
   }
 }
 
-function nhoVaiTro(v){ try{ localStorage.setItem(KHOA_VAITRO, v); }catch(e){} }
-function layVaiTro(){ try{ return localStorage.getItem(KHOA_VAITRO)||''; }catch(e){ return ''; } }
-
-/* Mở lại màn nhập mật khẩu: bấm vào đồng hồ 5 lần liên tiếp.
-   Dùng khi cần đổi giữa chế độ nhân viên và chế độ quản trị. */
-var demBam = 0, hetGio;
-$('dongho-vung').addEventListener('click', function(){
-  demBam++;
-  clearTimeout(hetGio);
-  hetGio = setTimeout(function(){ demBam = 0; }, 1200);
-  if (demBam >= 5){
-    demBam = 0;
-    hien('m-pass');
-    $('pass').focus();
-  }
+/* bấm đồng hồ 5 lần để quay lại màn mật khẩu */
+var dem=0, hg;
+$('dongho').addEventListener('click', function(){
+  dem++; clearTimeout(hg);
+  hg = setTimeout(function(){ dem=0; }, 1200);
+  if (dem>=5){ dem=0; hien('m-pass'); $('pass').focus(); }
 });
 
-/* --- màn chấm công --- */
+/* --- chấm công --- */
 function moChamCong(){
   $('ten-nv').textContent = TEN_NHAN_VIEN;
-  capNhatTT();
+  $('tt').textContent = 'Đang tải...';
   hien('m-cham');
-}
-
-function capNhatTT(){
-  var hnay = ngayStr(new Date());
-  var d = doc().filter(function(r){ return r.ngay === hnay; });
-  var v = null, r = null;
-  d.forEach(function(x){
-    if (x.loai === 'Vào ca' && !v) v = x.gio;
-    if (x.loai === 'Ra ca') r = x.gio;
+  goi({action:'homnay'}).then(function(kq){
+    veTT(kq.homNay);
+  }).catch(function(){
+    $('tt').textContent = 'Không kết nối được';
   });
-  $('tt-hnay').textContent = v ? ('Hôm nay: vào '+v+(r? ' · ra '+r : '')) : 'Hôm nay chưa chấm';
 }
 
-function ngayStr(d){ return d.getFullYear()+'-'+h2(d.getMonth()+1)+'-'+h2(d.getDate()); }
+function veTT(h){
+  if (!h || !h.vao){ $('tt').textContent = 'Hôm nay chưa chấm'; return; }
+  $('tt').textContent = 'Hôm nay: vào '+h.vao+(h.ra ? ' · ra '+h.ra : '');
+}
 
 function cham(loai){
-  var now = new Date();
-  var gio = h2(now.getHours())+':'+h2(now.getMinutes());
-  var d = doc();
+  $('b-vao').disabled = true; $('b-ra').disabled = true;
+  $('loi-cham').textContent = '';
 
-  d.push({ ts: now.getTime(), ngay: ngayStr(now), gio: gio, loai: loai, ten: TEN_NHAN_VIEN });
-  ghi(d);
+  goi({action:'cham', ten:TEN_NHAN_VIEN, loai:loai}).then(function(kq){
+    $('b-vao').disabled = false; $('b-ra').disabled = false;
+    if (!kq.ok){ $('loi-cham').textContent = kq.loi || 'Không ghi được'; return; }
 
-  $('d-loai').textContent = loai;
-  $('d-ten').textContent  = TEN_NHAN_VIEN;
-  $('d-gio').textContent  = gio;
-  $('dau').classList.remove('an');
-  setTimeout(function(){
-    $('dau').classList.add('an');
-    capNhatTT();
-  }, 2000);
+    veTT(kq.homNay);
+    $('d-loai').textContent = loai;
+    $('d-ten').textContent  = TEN_NHAN_VIEN;
+    $('d-gio').textContent  = kq.gio;
+    $('dau').classList.remove('an');
+    setTimeout(function(){ $('dau').classList.add('an'); }, 2000);
+
+  }).catch(function(){
+    $('b-vao').disabled = false; $('b-ra').disabled = false;
+    $('loi-cham').textContent = 'Mất mạng. Chưa ghi được, thử lại.';
+  });
 }
 
-/* --- màn báo cáo --- */
-function moBaoCao(){
-  var d = doc().sort(function(a,b){ return b.ts - a.ts; });   // mới nhất lên đầu
-  var tb = $('tbody');
-  tb.innerHTML = '';
+/* --- báo cáo --- */
+function moBaoCao(){ hien('m-bc'); taiBaoCao(); }
 
-  if (!d.length){
-    tb.innerHTML = '<tr><td colspan="3" class="trong">Chưa có lượt chấm công nào.</td></tr>';
-    $('tom').textContent = '';
-    hien('m-bc');
-    return;
-  }
+function taiBaoCao(){
+  $('tbody').innerHTML = '<tr><td colspan="3" class="trong">Đang tải...</td></tr>';
+  $('tom').textContent = '';
 
-  d.forEach(function(r, i){
-    var p = r.ngay.split('-');
-    var tr = document.createElement('tr');
-    if (i === 0) tr.className = 'moi';
-    tr.innerHTML =
-      '<td>'+p[2]+'/'+p[1]+'/'+p[0]+'</td>'+
-      '<td class="cot-gio">'+r.gio+'</td>'+
-      '<td><span class="nhan '+(r.loai==='Vào ca'?'v':'r')+'">'+r.loai+'</span></td>';
-    tb.appendChild(tr);
+  goi({action:'lichsu'}).then(function(kq){
+    lichSu = (kq && kq.data) || [];
+    var tb = $('tbody'); tb.innerHTML = '';
+
+    if (!lichSu.length){
+      tb.innerHTML = '<tr><td colspan="3" class="trong">Chưa có lượt chấm công nào.</td></tr>';
+      return;
+    }
+
+    lichSu.forEach(function(r){
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>'+r.ngay+'</td>'+
+                     '<td class="cot-gio">'+r.gio+'</td>'+
+                     '<td><span class="nhan '+(r.loai==='Vào ca'?'v':'r')+'">'+r.loai+'</span></td>';
+      tb.appendChild(tr);
+    });
+
+    var ng = {}; lichSu.forEach(function(r){ ng[r.ngay]=1; });
+    $('tom').textContent = lichSu.length+' lượt · '+Object.keys(ng).length+
+      ' ngày · gần nhất '+lichSu[0].gio+' ngày '+lichSu[0].ngay;
+
+  }).catch(function(){
+    $('tbody').innerHTML = '<tr><td colspan="3" class="trong">Không kết nối được.</td></tr>';
   });
-
-  var ngay = {};
-  d.forEach(function(r){ ngay[r.ngay] = 1; });
-  $('tom').textContent = d.length+' lượt chấm · '+Object.keys(ngay).length+' ngày · gần nhất '+
-    d[0].gio+' ngày '+d[0].ngay.split('-').reverse().join('/');
-
-  hien('m-bc');
 }
 
 function taiCSV(){
-  var d = doc().sort(function(a,b){ return b.ts - a.ts; });
-  if (!d.length) return;
-  var csv = '\uFEFFNgày,Giờ,Loại,Tên\n' + d.map(function(r){
+  if (!lichSu.length) return;
+  var csv = '\uFEFFNgày,Giờ,Loại,Tên\n' + lichSu.map(function(r){
     return r.ngay+','+r.gio+','+r.loai+','+r.ten;
   }).join('\n');
   var a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a.download = 'chamcong.csv';
   a.click();
 }
 
-function xoaHet(){
-  if (!confirm('Xoá toàn bộ lịch sử chấm công? Không khôi phục được.')) return;
-  ghi([]);
-  moBaoCao();
-}
-
-var vaiTro = layVaiTro();
-if (vaiTro === 'nv')         { moChamCong(); }
-else if (vaiTro === 'admin') { moBaoCao();  }
-else                         { hien('m-pass'); $('pass').focus(); }
+/* khởi động */
+var vt = layVaiTro();
+if (vt === 'nv')         moChamCong();
+else if (vt === 'admin') moBaoCao();
+else { hien('m-pass'); $('pass').focus(); }
 </script>
 </body>
 </html>
