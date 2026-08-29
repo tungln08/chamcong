@@ -158,14 +158,34 @@ function goi(params){
   var q = Object.keys(params).map(function(k){
     return k+'='+encodeURIComponent(params[k]);
   }).join('&');
-  return fetch(API+'?'+q).then(function(r){ return r.json(); });
+
+  // fetch không tự bỏ cuộc khi mạng treo -> tự đặt hạn 20 giây
+  return new Promise(function(ok, hong){
+    var xong = false;
+    var hen = setTimeout(function(){
+      if (!xong){ xong = true; hong(new Error('Quá hạn')); }
+    }, 20000);
+
+    fetch(API+'?'+q)
+      .then(function(r){ return r.json(); })
+      .then(function(d){ if(!xong){ xong=true; clearTimeout(hen); ok(d); } })
+      .catch(function(e){ if(!xong){ xong=true; clearTimeout(hen); hong(e); } });
+  });
 }
 
 /* đồng hồ */
+var ngayDangHien = '';
 function tick(){
   var d = new Date();
   $('gio').innerHTML = h2(d.getHours())+'<span class="cham">:</span>'+h2(d.getMinutes());
   $('ngay').textContent = THU[d.getDay()]+', '+d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();
+
+  // qua nửa đêm: nạp lại trạng thái để không hiện giờ của hôm qua
+  var moc = d.toDateString();
+  if (ngayDangHien && ngayDangHien !== moc && layVaiTro() === 'nv') {
+    moChamCong();
+  }
+  ngayDangHien = moc;
 }
 tick(); setInterval(tick,1000);
 
@@ -207,8 +227,11 @@ function moChamCong(){
 }
 
 function veTT(h){
-  if (!h || !h.vao){ $('tt').textContent = 'Hôm nay chưa chấm'; return; }
-  $('tt').textContent = 'Hôm nay: vào '+h.vao+(h.ra ? ' · ra '+h.ra : '');
+  h = h || {};
+  var p = [];
+  if (h.vao) p.push('vào ' + h.vao);
+  if (h.ra)  p.push('ra '  + h.ra);
+  $('tt').textContent = p.length ? ('Hôm nay: ' + p.join(' · ')) : 'Hôm nay chưa chấm';
 }
 
 function cham(loai){
@@ -217,7 +240,12 @@ function cham(loai){
 
   goi({action:'cham', ten:TEN_NHAN_VIEN, loai:loai}).then(function(kq){
     $('b-vao').disabled = false; $('b-ra').disabled = false;
-    if (!kq.ok){ $('loi-cham').textContent = kq.loi || 'Không ghi được'; return; }
+    if (!kq.ok){
+      $('loi-cham').textContent = kq.loi || 'Không ghi được';
+      if (kq.homNay) veTT(kq.homNay);
+      setTimeout(function(){ $('loi-cham').textContent = ''; }, 4000);
+      return;
+    }
 
     veTT(kq.homNay);
     $('d-loai').textContent = loai;
@@ -267,9 +295,11 @@ function taiBaoCao(){
 
 function taiCSV(){
   if (!lichSu.length) return;
-  var csv = '\uFEFFNgày,Giờ,Loại,Tên\n' + lichSu.map(function(r){
-    return r.ngay+','+r.gio+','+r.loai+','+r.ten;
-  }).join('\n');
+  var o = function(v){ return '"' + String(v == null ? '' : v).replace(/"/g,'""') + '"'; };
+  var csv = '\uFEFF' + [o('Ngày'),o('Giờ'),o('Loại'),o('Tên')].join(',') + '\n' +
+    lichSu.map(function(r){
+      return [o(r.ngay), o(r.gio), o(r.loai), o(r.ten)].join(',');
+    }).join('\n');
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a.download = 'chamcong.csv';
@@ -277,6 +307,9 @@ function taiCSV(){
 }
 
 /* khởi động */
+if (API.indexOf('script.google.com') === -1){
+  $('loi-pass').textContent = 'Chưa dán URL Apps Script vào biến API trong file.';
+}
 var vt = layVaiTro();
 if (vt === 'nv')         moChamCong();
 else if (vt === 'admin') moBaoCao();
