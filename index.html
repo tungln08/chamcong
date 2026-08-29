@@ -1,98 +1,286 @@
-/** CHẤM CÔNG — API lưu dữ liệu. Dán vào Code.gs trong Apps Script. */
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chấm công</title>
+<style>
+  :root{--nen:#0E1519;--mat:#17232A;--vien:#24363F;--chu:#E4EDF0;--mo:#7B939C;
+        --dau:#D2422C;--vao:#3E9E7E;--ra:#B8763A;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--nen);color:var(--chu);font-family:"Segoe UI",system-ui,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .khung{width:100%;max-width:720px}
 
-var TEN_SHEET = 'ChamCong';
-var TZ        = 'Asia/Ho_Chi_Minh';
+  .dongho{text-align:center;margin-bottom:32px;-webkit-user-select:none;user-select:none}
+  .gio{font-family:ui-monospace,Consolas,monospace;font-size:clamp(64px,15vw,116px);
+       font-weight:300;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+  .gio .cham{animation:nhay 2s steps(1) infinite}
+  @keyframes nhay{50%{opacity:.25}}
+  .ngay{color:var(--mo);font-size:14px;letter-spacing:.14em;text-transform:uppercase;margin-top:10px}
 
+  .the{background:var(--mat);border:1px solid var(--vien);border-radius:14px;padding:28px}
+  h2{font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+     color:var(--mo);margin-bottom:18px}
 
-function doGet(e) {
-  var act = (e && e.parameter && e.parameter.action) || '';
-  var kq;
+  input{width:100%;background:var(--nen);border:1px solid var(--vien);border-radius:9px;
+        color:var(--chu);font-size:20px;padding:16px 18px;letter-spacing:.2em;outline:none}
+  input:focus{border-color:var(--dau)}
 
-  try {
-    if (act === 'cham') {
-      kq = chamCong(e.parameter.ten, e.parameter.loai);
-    } else if (act === 'lichsu') {
-      kq = { ok: true, data: layTatCa().reverse() };   // mới nhất lên đầu
-    } else if (act === 'homnay') {
-      kq = { ok: true, homNay: layHomNay() };
-    } else {
-      kq = { ok: false, loi: 'Sai action' };
-    }
-  } catch (err) {
-    kq = { ok: false, loi: String(err) };
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:9px;
+         transition:transform .08s,filter .15s}
+  button:active{transform:scale(.985)}
+  button:disabled{opacity:.5;cursor:default}
+  button:focus-visible{outline:2px solid var(--chu);outline-offset:2px}
+  .nut-chinh{width:100%;margin-top:14px;background:var(--dau);color:#fff;
+             font-size:17px;font-weight:600;padding:16px}
+  .nut-chinh:hover:not(:disabled){filter:brightness(1.1)}
+
+  .ten-lon{font-size:26px;font-weight:600;margin-bottom:6px}
+  .tt{color:var(--mo);font-size:14px;margin-bottom:22px;font-family:ui-monospace,monospace}
+  .doi-nut{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .nut-vao,.nut-ra{color:#fff;font-size:19px;font-weight:600;padding:30px 16px}
+  .nut-vao{background:var(--vao)} .nut-ra{background:var(--ra)}
+  .nut-vao:hover:not(:disabled),.nut-ra:hover:not(:disabled){filter:brightness(1.12)}
+
+  .thanh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px}
+  .thanh h2{margin:0}
+  .nho{background:var(--nen);border:1px solid var(--vien);color:var(--mo);
+       font-size:13px;padding:9px 14px;white-space:nowrap}
+  .nho:hover{color:var(--chu);border-color:var(--mo)}
+  .bang{max-height:52vh;overflow:auto;border:1px solid var(--vien);border-radius:9px}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  th{position:sticky;top:0;background:var(--mat);color:var(--mo);font-size:11px;
+     letter-spacing:.12em;text-transform:uppercase;text-align:left;padding:12px 16px;
+     border-bottom:1px solid var(--vien);font-weight:600}
+  td{padding:13px 16px;border-bottom:1px solid rgba(36,54,63,.55)}
+  tr:last-child td{border-bottom:none}
+  .cot-gio{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  .nhan{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;
+        display:inline-block;letter-spacing:.04em}
+  .nhan.v{background:rgba(62,158,126,.16);color:var(--vao)}
+  .nhan.r{background:rgba(184,118,58,.16);color:var(--ra)}
+  .trong{padding:44px 16px;text-align:center;color:var(--mo);font-size:15px}
+  .tom{color:var(--mo);font-size:13px;margin-top:14px}
+
+  .dau-khung{position:fixed;inset:0;background:rgba(14,21,25,.94);display:flex;
+             align-items:center;justify-content:center;z-index:10}
+  .dau-mark{border:4px solid var(--dau);border-radius:10px;color:var(--dau);
+            padding:26px 40px;text-align:center;transform:rotate(-7deg);
+            animation:dong .34s cubic-bezier(.3,1.5,.5,1)}
+  @keyframes dong{from{transform:rotate(-7deg) scale(2.4);opacity:0}
+                  to{transform:rotate(-7deg) scale(1);opacity:1}}
+  @media (prefers-reduced-motion:reduce){.dau-mark,.gio .cham{animation:none}}
+  .dau-mark .loai{font-size:15px;letter-spacing:.24em;text-transform:uppercase;font-weight:700}
+  .dau-mark .ten{font-size:30px;font-weight:700;margin:6px 0;color:var(--chu)}
+  .dau-mark .g{font-family:ui-monospace,monospace;font-size:44px;font-weight:300}
+
+  .loi{color:var(--dau);font-size:14px;margin-top:12px;min-height:20px}
+  .an{display:none}
+</style>
+</head>
+<body>
+
+<div class="khung">
+  <div class="dongho" id="dongho">
+    <div class="gio" id="gio">--<span class="cham">:</span>--</div>
+    <div class="ngay" id="ngay"></div>
+  </div>
+
+  <div class="the" id="m-pass">
+    <h2>Nhập mật khẩu</h2>
+    <input type="password" id="pass" autocomplete="off" placeholder="••••••••">
+    <button class="nut-chinh" id="btn-vao">Vào</button>
+    <div class="loi" id="loi-pass"></div>
+  </div>
+
+  <div class="the an" id="m-cham">
+    <div class="ten-lon" id="ten-nv"></div>
+    <div class="tt" id="tt">Đang tải...</div>
+    <div class="doi-nut">
+      <button class="nut-vao" id="b-vao" onclick="cham('Vào ca')">Vào ca</button>
+      <button class="nut-ra"  id="b-ra"  onclick="cham('Ra ca')">Ra ca</button>
+    </div>
+    <div class="loi" id="loi-cham"></div>
+  </div>
+
+  <div class="the an" id="m-bc">
+    <div class="thanh">
+      <h2>Lịch sử chấm công</h2>
+      <div>
+        <button class="nho" onclick="taiBaoCao()">Làm mới</button>
+        <button class="nho" onclick="taiCSV()">Tải Excel</button>
+      </div>
+    </div>
+    <div class="bang"><table>
+      <thead><tr><th>Ngày</th><th>Giờ</th><th>Loại</th></tr></thead>
+      <tbody id="tbody"><tr><td colspan="3" class="trong">Đang tải...</td></tr></tbody>
+    </table></div>
+    <div class="tom" id="tom"></div>
+  </div>
+</div>
+
+<div class="dau-khung an" id="dau">
+  <div class="dau-mark">
+    <div class="loai" id="d-loai"></div>
+    <div class="ten"  id="d-ten"></div>
+    <div class="g"    id="d-gio"></div>
+  </div>
+</div>
+
+<script>
+/* ==================== CẤU HÌNH ====================
+   Dán URL Web App của Apps Script vào đây.
+   Dạng: https://script.google.com/macros/s/AKfy..../exec  */
+var API = 'https://script.google.com/macros/s/AKfycbwg8XG53kH4LKpsbMyuXL-0OMrKqb7Zcc_CymLApnDUHEUsu3D8vduKm3rWVyWiwz5V/exec';
+
+var TEN_NHAN_VIEN = 'Nguyễn Võ Khánh Tường';
+var PASS_NHANVIEN = 'chamcongchongluoibieng';
+var PASS_ADMIN    = 'toilaquantrivien';
+/* ================================================== */
+
+var KHOA_VAITRO = 'cc_vaitro';
+var THU = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
+var lichSu = [];
+
+function $(id){ return document.getElementById(id); }
+function h2(n){ return ('0'+n).slice(-2); }
+function nho(v){ try{ localStorage.setItem(KHOA_VAITRO,v); }catch(e){} }
+function layVaiTro(){ try{ return localStorage.getItem(KHOA_VAITRO)||''; }catch(e){ return ''; } }
+
+function hien(id){
+  ['m-pass','m-cham','m-bc'].forEach(function(m){ $(m).classList.add('an'); });
+  $(id).classList.remove('an');
+}
+
+/* gọi API */
+function goi(params){
+  var q = Object.keys(params).map(function(k){
+    return k+'='+encodeURIComponent(params[k]);
+  }).join('&');
+  return fetch(API+'?'+q).then(function(r){ return r.json(); });
+}
+
+/* đồng hồ */
+function tick(){
+  var d = new Date();
+  $('gio').innerHTML = h2(d.getHours())+'<span class="cham">:</span>'+h2(d.getMinutes());
+  $('ngay').textContent = THU[d.getDay()]+', '+d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();
+}
+tick(); setInterval(tick,1000);
+
+/* đăng nhập */
+$('btn-vao').onclick = vao;
+$('pass').addEventListener('keydown', function(e){ if(e.key==='Enter') vao(); });
+
+function vao(){
+  var p = $('pass').value.trim();
+  $('loi-pass').textContent = '';
+  if (p === PASS_NHANVIEN){
+    $('pass').value=''; nho('nv'); moChamCong();
+  } else if (p === PASS_ADMIN){
+    $('pass').value=''; nho('admin'); moBaoCao();
+  } else {
+    $('loi-pass').textContent = 'Mật khẩu không đúng';
+    $('pass').value = '';
   }
-
-  return ContentService
-    .createTextOutput(JSON.stringify(kq))
-    .setMimeType(ContentService.MimeType.JSON);
 }
 
+/* bấm đồng hồ 5 lần để quay lại màn mật khẩu */
+var dem=0, hg;
+$('dongho').addEventListener('click', function(){
+  dem++; clearTimeout(hg);
+  hg = setTimeout(function(){ dem=0; }, 1200);
+  if (dem>=5){ dem=0; hien('m-pass'); $('pass').focus(); }
+});
 
-function chamCong(ten, loai) {
-  var sheet = laySheet();
-  var now   = new Date();
-  var gio   = Utilities.formatDate(now, TZ, 'HH:mm');
-
-  sheet.appendRow([
-    now,
-    Utilities.formatDate(now, TZ, 'dd/MM/yyyy'),
-    gio,
-    loai,
-    ten
-  ]);
-
-  // appendRow xếp hàng chờ, phải ép ghi xong rồi mới đọc lại được
-  SpreadsheetApp.flush();
-
-  // trạng thái đọc từ sheet, rồi cộng thêm lượt vừa bấm cho chắc
-  var h = layHomNay();
-  if (loai === 'Vào ca' && !h.vao) h.vao = gio;
-  if (loai === 'Ra ca')            h.ra  = gio;
-
-  return { ok: true, gio: gio, homNay: h };
-}
-
-
-function layHomNay() {
-  var hnay = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy');
-  var v = null, r = null;
-
-  layTatCa().forEach(function (x) {
-    if (x.ngay !== hnay) return;
-    if (x.loai === 'Vào ca' && !v) v = x.gio;
-    if (x.loai === 'Ra ca') r = x.gio;
+/* --- chấm công --- */
+function moChamCong(){
+  $('ten-nv').textContent = TEN_NHAN_VIEN;
+  $('tt').textContent = 'Đang tải...';
+  hien('m-cham');
+  goi({action:'homnay'}).then(function(kq){
+    veTT(kq.homNay);
+  }).catch(function(){
+    $('tt').textContent = 'Không kết nối được';
   });
-
-  return { vao: v, ra: r };
 }
 
+function veTT(h){
+  if (!h || !h.vao){ $('tt').textContent = 'Hôm nay chưa chấm'; return; }
+  $('tt').textContent = 'Hôm nay: vào '+h.vao+(h.ra ? ' · ra '+h.ra : '');
+}
 
-function layTatCa() {
-  var sheet = laySheet();
-  var last  = sheet.getLastRow();
-  if (last < 2) return [];
+function cham(loai){
+  $('b-vao').disabled = true; $('b-ra').disabled = true;
+  $('loi-cham').textContent = '';
 
-  return sheet.getRange(2, 1, last - 1, 5).getValues()
-    .filter(function (r) { return r[0] instanceof Date; })
-    .map(function (r) {
-      return {
-        ngay: Utilities.formatDate(r[0], TZ, 'dd/MM/yyyy'),
-        gio:  Utilities.formatDate(r[0], TZ, 'HH:mm'),
-        loai: String(r[3]),
-        ten:  String(r[4])
-      };
+  goi({action:'cham', ten:TEN_NHAN_VIEN, loai:loai}).then(function(kq){
+    $('b-vao').disabled = false; $('b-ra').disabled = false;
+    if (!kq.ok){ $('loi-cham').textContent = kq.loi || 'Không ghi được'; return; }
+
+    veTT(kq.homNay);
+    $('d-loai').textContent = loai;
+    $('d-ten').textContent  = TEN_NHAN_VIEN;
+    $('d-gio').textContent  = kq.gio;
+    $('dau').classList.remove('an');
+    setTimeout(function(){ $('dau').classList.add('an'); }, 2000);
+
+  }).catch(function(){
+    $('b-vao').disabled = false; $('b-ra').disabled = false;
+    $('loi-cham').textContent = 'Mất mạng. Chưa ghi được, thử lại.';
+  });
+}
+
+/* --- báo cáo --- */
+function moBaoCao(){ hien('m-bc'); taiBaoCao(); }
+
+function taiBaoCao(){
+  $('tbody').innerHTML = '<tr><td colspan="3" class="trong">Đang tải...</td></tr>';
+  $('tom').textContent = '';
+
+  goi({action:'lichsu'}).then(function(kq){
+    lichSu = (kq && kq.data) || [];
+    var tb = $('tbody'); tb.innerHTML = '';
+
+    if (!lichSu.length){
+      tb.innerHTML = '<tr><td colspan="3" class="trong">Chưa có lượt chấm công nào.</td></tr>';
+      return;
+    }
+
+    lichSu.forEach(function(r){
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>'+r.ngay+'</td>'+
+                     '<td class="cot-gio">'+r.gio+'</td>'+
+                     '<td><span class="nhan '+(r.loai==='Vào ca'?'v':'r')+'">'+r.loai+'</span></td>';
+      tb.appendChild(tr);
     });
+
+    var ng = {}; lichSu.forEach(function(r){ ng[r.ngay]=1; });
+    $('tom').textContent = lichSu.length+' lượt · '+Object.keys(ng).length+
+      ' ngày · gần nhất '+lichSu[0].gio+' ngày '+lichSu[0].ngay;
+
+  }).catch(function(){
+    $('tbody').innerHTML = '<tr><td colspan="3" class="trong">Không kết nối được.</td></tr>';
+  });
 }
 
-
-function laySheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sh = ss.getSheetByName(TEN_SHEET);
-  if (!sh) {
-    sh = ss.insertSheet(TEN_SHEET);
-    sh.appendRow(['Thời gian', 'Ngày', 'Giờ', 'Loại', 'Tên']);
-    sh.setFrozenRows(1);
-  }
-  sh.getRange('B:C').setNumberFormat('@');   // giữ Ngày và Giờ ở dạng chữ
-  return sh;
+function taiCSV(){
+  if (!lichSu.length) return;
+  var csv = '\uFEFFNgày,Giờ,Loại,Tên\n' + lichSu.map(function(r){
+    return r.ngay+','+r.gio+','+r.loai+','+r.ten;
+  }).join('\n');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'chamcong.csv';
+  a.click();
 }
+
+/* khởi động */
+var vt = layVaiTro();
+if (vt === 'nv')         moChamCong();
+else if (vt === 'admin') moBaoCao();
+else { hien('m-pass'); $('pass').focus(); }
+</script>
+</body>
+</html>
